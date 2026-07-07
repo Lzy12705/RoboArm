@@ -3,12 +3,12 @@ import torch as t
 import torch.nn.functional as f
 import torch.nn as nn
 import torch.optim as optim
-import torch.distributions.normal import Normal
+#import torch.distributions.normal import Normal
 
 class CriticNetwork(nn.Module):
     def __init__(self, input_dims, n_actions, fc1_dims=256, fc2_dims=128, name = 'critic', checkpoint_dir = 'tmp/ppo', learning_rate=10e-3):
         super(CriticNetwork, self).__init__()
-        self.input_dim = input_dims
+        self.input_dims = input_dims
         self.fc1_dims = fc1_dims
         self.fc2_dims = fc2_dims
         self.n_actions = n_actions
@@ -23,7 +23,7 @@ class CriticNetwork(nn.Module):
         #for optimizer
         self.optimizer = optim.Adam(self.parameters(), lr=learning_rate, weight_decay=0.005)
         self.device = t.device('cuda:0' if t.cuda.is_available() else 'cpu')
-        print("Created Critic Network on device: {self.device},")
+        print(f"Created Critic Network on device: {self.device},")
         
         self.to(self.device)
         
@@ -53,16 +53,16 @@ class ActorNetwork(nn.Module):
         self.checkpoint_dir = checkpoint_dir
         self.checkpoint_file = os.path.join(self.checkpoint_dir, name+'_ppo')
 
-        self.fc1 = nn.Linear(self.input_dims, self.fc1_dims)
+        self.fc1 = nn.Linear(self.input_dims[0], self.fc1_dims)
         self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)
         self.output = nn.Linear(self.fc2_dims, self.n_actions)
         
         #for optimizer
         self.optimizer = optim.Adam(self.parameters(), lr=learning_rate)
         self.device = t.device('cuda:0' if t.cuda.is_available() else 'cpu')
-        print("Created Actor Network on device: {self.device},")
+        print(f"Created Actor Network on device: {self.device},")
         
-        return self.to(self.device)
+        self.to(self.device)
     
     def forward(self, state):
         x = self.fc1(state)
