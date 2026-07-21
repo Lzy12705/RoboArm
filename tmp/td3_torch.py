@@ -18,7 +18,8 @@ class Agent:
         self.warmup = warmup
         self.n_actions = n_actions
         self.update_actor_interval = update_actor_interval
-        
+        self.learn_step_cntr = 0
+
         self.actor = ActorNetwork(input_dims=input_dims, fc1_dims=layer1_size,
                                   fc2_dims=layer2_size, n_actions=n_actions,
                                   name='actor', learning_rate=actor_learning_rate)
@@ -28,6 +29,8 @@ class Agent:
         self.critic_2 = CriticNetwork(input_dims=input_dims, fc1_dims=layer1_size,
                                    fc2_dims=layer2_size, n_actions=n_actions,
                                    name='critic_2', learning_rate=critic_learning_rate)
+        
+        # Create the target networks
         self.target_actor = ActorNetwork(input_dims=input_dims, fc1_dims=layer1_size,
                                          fc2_dims=layer2_size, n_actions=n_actions,
                                          name='target_actor', learning_rate=actor_learning_rate)
@@ -46,8 +49,8 @@ class Agent:
         else:
             state = T.tensor(observation, dtype=T.float).to(self.actor.device)
             mu = self.actor.forward(state).to(self.actor.device)
-            
-        mu_prime = mu + T.tensor(np.random.normal(scale=self.noise), dtype=T.float).to(self.actor.device)
+
+        mu_prime = mu + T.tensor(np.random.normal(scale=self.noise, size=(self.n_actions,)), dtype=T.float).to(self.actor.device)
         mu_prime = T.clamp(mu_prime, self.min_action[0], self.max_action[0])
         
         self.time_step += 1
@@ -55,13 +58,13 @@ class Agent:
     
     # for storage purposes
     def remember(self, state, action, reward, new_state, done):
-        pass
+        self.memory.store_transition(state, action, reward, new_state, done)
     
     def learn(self):
         if self.memory.mem_ctr < self.batch_size * 10:
             return
         
-        state, action, reward, new_state, done = self.memory.simple_buffer(self.batch_size)
+        state, action, reward, new_state, done = self.memory.sample_buffer(self.batch_size)
         
         reward = T.tensor(reward, dtype=T.float).to(self.critic_1.device)
         done = T.tensor(done).to(self.critic_1.device)
@@ -70,25 +73,24 @@ class Agent:
         action = T.tensor(action, dtype=T.float).to(self.critic_1.device)
         
         target_actions = self.target_actor.forward(next_state)
-        target_actions = target_actions + T.clamp(T.tensor(np.random.normal(scale=0.2)), -0.5, 0.5) #min and max for the noise term
+        target_actions = target_actions + T.clamp(T.tensor(np.random.normal(scale=0.2, size=target_actions.shape), dtype=T.float).to(self.critic_1.device), -0.5, 0.5) #min and max for the noise term
         target_actions = T.clamp(target_actions, self.min_action[0], self.max_action[0])
         
-        #capturing the states
         next_q1 = self.target_critic_1.forward(next_state, target_actions)
         next_q2 = self.target_critic_2.forward(next_state, target_actions)
-        
+
         q1 = self.critic_1.forward(state, action)
         q2 = self.critic_2.forward(state, action)
-        
+
         next_q1[done] = 0.0
-        next_q1[done] = 0.0
+        next_q2[done] = 0.0
         
         next_q1 = next_q1.view(-1)
         next_q2 = next_q2.view(-1)
         
         next_critic_value = T.min(next_q1, next_q2) #fighting overestimation bias, taking the minimum of the lower Q values
         target = reward + self.gamma * next_critic_value   #gamma: how much value we put into the next state, showing the reward of the future state, using the current reward as our value
-        target - target.view(self.batch_size, 1)
+        target = target.view(self.batch_size, 1)
         
         self.critic_1.optimizer.zero_grad()
         self.critic_2.optimizer.zero_grad()
@@ -104,12 +106,12 @@ class Agent:
         
         self.learn_step_cntr += 1
         
-        if self.learn_step_cntr % self.update_actor_iter != 0:
+        if self.learn_step_cntr % self.update_actor_interval != 0:
             return
         
         self.actor.optimizer.zero_grad()
-        actor_loss = self.critic_1.forward(state, self.actor.forward(state)) #critics value and the actor's decisions
-        actor_loss = -T.mean(actor_loss) #minimizing the loss, maixmize the value of actor in gradient descent
+        actor_q1_loss = self.critic_1.forward(state, self.actor.forward(state))
+        actor_loss = -T.mean(actor_q1_loss)
         actor_loss.backward()
         self.actor.optimizer.step()
         self.update_network_parameters()
@@ -148,6 +150,7 @@ class Agent:
     
     def save_models(self):
         self.actor.save_checkpoint()
+        self.target_actor.save_checkpoint()
         self.critic_1.save_checkpoint()
         self.critic_2.save_checkpoint()
         self.target_critic_1.save_checkpoint()
@@ -156,6 +159,7 @@ class Agent:
     def load_models(self):
         try:
             self.actor.load_checkpoint()
+            self.target_actor.load_checkpoint()
             self.critic_1.load_checkpoint()
             self.critic_2.load_checkpoint()
             self.target_critic_1.load_checkpoint()
