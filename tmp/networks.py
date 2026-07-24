@@ -21,7 +21,7 @@ class CriticNetwork(nn.Module):
         self.q1 = nn.Linear(self.fc2_dims, 1)
         
         #for optimizer
-        self.optimizer = optim.Adam(self.parameters(), lr=learning_rate, weight_decay=0.005)
+        self.optimizer = optim.AdamW(self.parameters(), lr=learning_rate, weight_decay=0.005)
         self.device = t.device('cuda:0' if t.cuda.is_available() else 'cpu')
         print(f"Created Critic Network on device: {self.device},")
         
@@ -39,8 +39,8 @@ class CriticNetwork(nn.Module):
     def save_checkpoint(self):
         t.save(self.state_dict(), self.checkpoint_file)
         
-    def Load_checkpoint(self):
-        self.Load_state_dict(t.load(self.checkpoint_file))
+    def load_checkpoint(self):
+        self.load_state_dict(t.load(self.checkpoint_file))
         
 class ActorNetwork(nn.Module):
     def __init__(self, input_dims, fc1_dims=256, fc2_dims=128, learning_rate=10e-3, n_actions=2, name='actor', checkpoint_dir='tmp/ppo'):
@@ -77,5 +77,5 @@ class ActorNetwork(nn.Module):
     def save_checkpoint(self):
         t.save(self.state_dict(), self.checkpoint_file)
     
-    def Load_checkpoint(self):
-        self.Load_state_dict(t.load(self.checkpoint_file))
+    def load_checkpoint(self):
+        self.load_state_dict(t.load(self.checkpoint_file))
