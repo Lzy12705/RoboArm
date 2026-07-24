@@ -50,32 +50,37 @@ if __name__ == "__main__":
     
     run_name = time.strftime("run_%Y%m%d_%H%M%S")
     writer = SummaryWriter(f'logs/{run_name}')
-    n_games = 10000
-    best_score = 0
-    episode_identifier = f"0 -actor_learning_rate={actor_learning_rate} critic_learning_rate={critic_learning_rate} layer_1_size={layer1_size} layer_2_size={layer2_size}"
+    n_games = 10
     
-    agent.load_models()
+    for experiment in range(10):
+        best_score = 0
+        
+        episode_identifier = f"{experiment} - actor_learning_rate={actor_learning_rate} critic_learning_rate{critic_learning_rate} layer1_size={layer1_size} layer2_size={layer2_size}"
+                
+        # agent.load_models()
+        for i in range(n_games):
+            observation, info = env.reset()  #ALWAYS RESETTING THE ENVIRONMENT
+            done = False
+            score = 0
 
-    for i in range(n_games):
-        observation, info = env.reset()  #ALWAYS RESETTING THE ENVIRONMENT
-        done = False
-        score = 0
+            while not done:
+                action = agent.choose_action(observation)
+                next_observation, reward, terminated, truncated, info = env.step(action)
+                done = terminated or truncated
+                score += reward
+                agent.remember(observation, action, reward, next_observation, done)
+                agent.learn()
+                observation = next_observation
 
-        while not done:
-            action = agent.choose_action(observation)
-            next_observation, reward, terminated, truncated, info = env.step(action)
-            done = terminated or truncated
-            score += reward
-            agent.remember(observation, action, reward, next_observation, done)
-            agent.learn()
-            observation = next_observation
+            writer.add_scalar(f"Score - {episode_identifier}", score, global_step=i)
 
-        writer.add_scalar(f"Score - {episode_identifier}", score, global_step=i)
+            if (i % 10) == 0:
+                agent.save_models()
 
-        if i % 10 == 0:
-            agent.save_models()
+            print(f"Episode: {i} Score: {score}")
+            
+            actor_learning_rate = actor_learning_rate * 0.8
 
-        print(f"Episode: {i} Score: {score}")
 
     ###
     # critic_network = CriticNetwork([8], n_actions=8)
