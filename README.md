@@ -79,3 +79,6 @@ Run this from inside `tmp/` (or point `--logdir` at `tmp/logs` from the repo roo
 ## Notes
 
 - If you ever change the robot's control mode or action space in `main.py`, update `test.py` to match — otherwise checkpoint loading will fail silently (network shape mismatch) and it'll fall back to an untrained model.
+
+## Credit
+Credit to youtube guide: https://youtube.com/playlist?list=PLOkmXPXHDP22VQmr37DFuJr6k30setQ2w&si=aP8A-uFhNXj3BcZ2
